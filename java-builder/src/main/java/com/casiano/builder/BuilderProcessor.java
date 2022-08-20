@@ -93,7 +93,7 @@ public class BuilderProcessor extends AbstractProcessor {
         addIndentation(out, 3);
         out.println(fullName + " " + variable + " = constructor.newInstance();");
         addIndentation(out, 3);
-        out.println("java.lang.reflect.Field[] fields = Book.class.getDeclaredFields();");
+        out.println("java.lang.reflect.Field[] fields = " + fullName + ".class.getDeclaredFields();");
         for (int i = 0; i < fields.size(); i++) {
             addIndentation(out, 3);
             out.println("setField(" + variable + ", fields[" + i + "], this." + fields.get(i).name + ");");

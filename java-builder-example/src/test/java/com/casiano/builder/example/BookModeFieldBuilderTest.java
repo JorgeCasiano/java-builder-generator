@@ -6,11 +6,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
-class BookBuilderTest {
+class BookModeFieldBuilderTest {
 
     @Test
     void whenBuildBookWithBuilder_thenObjectHasPropertyValues() {
-        Book book = BookBuilder.newBuilder()
+        BookModeField book = BookModeFieldBuilder.newBuilder()
                 .isbn("an_isbn")
                 .title("a_title")
                 .pages(10)
