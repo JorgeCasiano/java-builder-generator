@@ -42,6 +42,7 @@ public class BuilderProcessor extends AbstractProcessor {
                 List<FieldInfo> fields = extractFields(element);
                 addFields(fields, out);
 
+                addNewBuilder(out, builderName);
                 addBuildMethod(out, pkg, element.getSimpleName().toString(), fields);
                 addMethods(fields, builderName, out);
                 addHelperSetField(out, pkg, element.getSimpleName().toString());
@@ -51,6 +52,15 @@ public class BuilderProcessor extends AbstractProcessor {
         } catch (Exception e) {
             error("Error: " + e, element);
         }
+    }
+
+    private void addNewBuilder(PrintWriter out, String builderName) {
+        addIndentation(out, 1);
+        out.println("public static " + builderName + " newBuilder() {");
+        addIndentation(out, 2);
+        out.println("return new " + builderName + "();");
+        addIndentation(out, 1);
+        out.println("}");
     }
 
     private List<FieldInfo> extractFields(Element element) {

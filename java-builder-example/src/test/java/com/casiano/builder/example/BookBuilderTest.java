@@ -10,7 +10,7 @@ class BookBuilderTest {
 
     @Test
     void whenBuildBookWithBuilder_thenObjectHasPropertyValues() {
-        Book book = new BookBuilder()
+        Book book = BookBuilder.newBuilder()
                 .isbn("an_isbn")
                 .title("a_title")
                 .pages(10)
