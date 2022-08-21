@@ -90,7 +90,7 @@ public class BuilderProcessor extends AbstractProcessor {
         out.println("java.lang.reflect.Field[] fields = " + fullName + ".class.getDeclaredFields();");
         for (int i = 0; i < fields.size(); i++) {
             addIndentation(out, 3);
-            out.println("setField(" + variable + ", fields[" + i + "], this." + fields.get(i).name + ");");
+            out.println("setField(" + variable + ", fields[" + i + "], this." + fields.get(i).name() + ");");
         }
         addIndentation(out, 3);
         out.println("return " + variable + ";");
@@ -109,7 +109,7 @@ public class BuilderProcessor extends AbstractProcessor {
     private void addFields(List<FieldInfo> fields, PrintWriter out) {
         fields.forEach(field -> {
             addIndentation(out, 1);
-            out.println("private " + field.type + " " + field.name + ";");
+            out.println("private " + field.type() + " " + field.name() + ";");
             lineBreak(out);
         });
         lineBreak(out);
@@ -122,10 +122,10 @@ public class BuilderProcessor extends AbstractProcessor {
 
     private void addMethod(FieldInfo field, String builderName, PrintWriter out) {
         addIndentation(out, 1);
-        out.println("public " + builderName + " " + field.name + "(" + field.type + " " + field.name + ") {");
+        out.println("public " + builderName + " " + field.name() + "(" + field.type() + " " + field.name() + ") {");
 
         addIndentation(out, 2);
-        out.println("this." + field.name + " = " + field.name + ";");
+        out.println("this." + field.name() + " = " + field.name() + ";");
         addIndentation(out, 2);
         out.println("return this;");
 
@@ -158,7 +158,5 @@ public class BuilderProcessor extends AbstractProcessor {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg, e);
     }
 
-    record FieldInfo(String name, String type) {
 
-    }
 }
