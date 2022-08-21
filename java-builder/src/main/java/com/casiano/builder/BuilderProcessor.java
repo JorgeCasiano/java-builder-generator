@@ -85,13 +85,7 @@ public class BuilderProcessor extends AbstractProcessor {
         addIndentation(out, 2);
         out.println("try {");
         addIndentation(out, 3);
-        out.println("java.lang.reflect.Constructor<" + fullName + "> constructor =");
-        addIndentation(out, 4);
-        out.println("java.util.Optional.ofNullable(" + fullName + ".class.getConstructor())");
-        addIndentation(out, 5);
-        out.println(".orElseThrow(() -> new RuntimeException(\"default constructor is required in class " + fullName + "\"));");
-        addIndentation(out, 3);
-        out.println(fullName + " " + variable + " = constructor.newInstance();");
+        out.println(fullName + " " + variable + " = new " + fullName + "();");
         addIndentation(out, 3);
         out.println("java.lang.reflect.Field[] fields = " + fullName + ".class.getDeclaredFields();");
         for (int i = 0; i < fields.size(); i++) {
@@ -101,7 +95,7 @@ public class BuilderProcessor extends AbstractProcessor {
         addIndentation(out, 3);
         out.println("return " + variable + ";");
         addIndentation(out, 2);
-        out.println("} catch (NoSuchMethodException | InstantiationException | IllegalAccessException | java.lang.reflect.InvocationTargetException e) {");
+        out.println("} catch (IllegalAccessException e) {");
         addIndentation(out, 3);
         out.println("throw new RuntimeException(e);");
         addIndentation(out, 2);
