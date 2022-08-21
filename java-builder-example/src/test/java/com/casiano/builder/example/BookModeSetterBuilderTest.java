@@ -6,26 +6,24 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
-class BookModeFieldBuilderTest {
+class BookModeSetterBuilderTest {
 
     @Test
-    void whenBuildBookWithBuilder_modeField_thenObjectHasPropertyValues() {
-        BookModeField book = BookModeFieldBuilder.newBuilder()
+    void whenBuildBookWithBuilder_modeSetter_thenObjectHasPropertyValues() {
+        BookModeSetter book = BookModeSetterBuilder.newBuilder()
                 .isbn("an_isbn")
                 .title("a_title")
-                .pages(10)
                 .build();
 
         assertThat(book, notNullValue());
         assertThat(book.getIsbn(), is("an_isbn"));
         assertThat(book.getTitle(), is("a_title"));
-        assertThat(book.getPages(), is(10));
     }
 
     @Test
-    void whenGenerateBuilderWithModeField_generateAttributesFromFields() {
-        int fields = BookModeFieldBuilder.class.getDeclaredFields().length;
-        assertThat(fields, is(3));
+    void whenGenerateBuilderWithModeSetter_generateAttributesFromSetter() {
+        int fields = BookModeSetterBuilder.class.getDeclaredFields().length;
+        assertThat(fields, is(2));
     }
 
 }

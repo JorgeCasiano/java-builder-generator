@@ -7,7 +7,6 @@ import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
@@ -31,6 +30,7 @@ public class BuilderProcessor extends AbstractProcessor {
 
     private void generateClass(Element element) {
         try {
+            Builder builderAnnotation = element.getAnnotation(Builder.class);
             String pkg = element.getEnclosingElement().toString();
 
             String builderName = element.getSimpleName() + "Builder";
@@ -39,13 +39,17 @@ public class BuilderProcessor extends AbstractProcessor {
             PrintWriter out = new PrintWriter(builderFile.openWriter());
             try (out) {
                 declareClass(out, pkg, builderName);
-                List<FieldInfo> fields = extractFields(element);
+                boolean modeSetter = builderAnnotation.mode() == BuilderMode.SETTER;
+                List<FieldInfo> fields = modeSetter ? FieldInfo.extractSetters(element) : FieldInfo.extractFields(element);
                 addFields(fields, out);
 
                 addNewBuilder(out, builderName);
-                addBuildMethod(out, pkg, element.getSimpleName().toString(), fields);
+                addBuildMethod(out, pkg, element.getSimpleName().toString(), fields, modeSetter);
                 addMethods(fields, builderName, out);
-                addHelperSetField(out, pkg, element.getSimpleName().toString());
+
+                if (!modeSetter) {
+                    addHelperSetField(out, pkg, element.getSimpleName().toString());
+                }
 
                 out.println("}");
             }
@@ -61,13 +65,7 @@ public class BuilderProcessor extends AbstractProcessor {
         out.println("return new " + builderName + "();");
         addIndentation(out, 1);
         out.println("}");
-    }
-
-    private List<FieldInfo> extractFields(Element element) {
-        return element.getEnclosedElements().stream()
-                .filter(e -> e.getKind() == ElementKind.FIELD)
-                .map(e -> new FieldInfo(e.getSimpleName().toString(), e.asType().toString()))
-                .toList();
+        lineBreak(out);
     }
 
     private void declareClass(PrintWriter out, String pkg, String builderName) {
@@ -77,29 +75,41 @@ public class BuilderProcessor extends AbstractProcessor {
         lineBreak(out);
     }
 
-    private void addBuildMethod(PrintWriter out, String pkg, String clsName, List<FieldInfo> fields) {
+    private void addBuildMethod(PrintWriter out, String pkg, String clsName, List<FieldInfo> fields, boolean modeSetter) {
         String fullName = pkg + "." + clsName;
         String variable = clsName.toLowerCase();
         addIndentation(out, 1);
         out.println("public " + fullName + " build() {");
         addIndentation(out, 2);
-        out.println("try {");
-        addIndentation(out, 3);
-        out.println(fullName + " " + variable + " = new " + fullName + "();");
-        addIndentation(out, 3);
-        out.println("java.lang.reflect.Field[] fields = " + fullName + ".class.getDeclaredFields();");
-        for (int i = 0; i < fields.size(); i++) {
+        if (modeSetter) {
+            out.println(fullName + " " + variable + " = new " + fullName + "();");
+            for (FieldInfo field : fields) {
+                addIndentation(out, 2);
+                String setter = "set" + Character.toUpperCase(field.name().charAt(0)) + field.name().substring(1);
+                out.println(variable + "." + setter + "(this." + field.name() + ");");
+            }
+            addIndentation(out, 2);
+            out.println("return " + variable + ";");
+        } else {
+            out.println("try {");
             addIndentation(out, 3);
-            out.println("setField(" + variable + ", fields[" + i + "], this." + fields.get(i).name() + ");");
+            out.println(fullName + " " + variable + " = new " + fullName + "();");
+            addIndentation(out, 3);
+            out.println("java.lang.reflect.Field[] fields = " + fullName + ".class.getDeclaredFields();");
+            for (int i = 0; i < fields.size(); i++) {
+                addIndentation(out, 3);
+                out.println("setField(" + variable + ", fields[" + i + "], this." + fields.get(i).name() + ");");
+            }
+            addIndentation(out, 3);
+            out.println("return " + variable + ";");
+            addIndentation(out, 2);
+            out.println("} catch (IllegalAccessException e) {");
+            addIndentation(out, 3);
+            out.println("throw new RuntimeException(e);");
+            addIndentation(out, 2);
+            out.println("}");
         }
-        addIndentation(out, 3);
-        out.println("return " + variable + ";");
-        addIndentation(out, 2);
-        out.println("} catch (IllegalAccessException e) {");
-        addIndentation(out, 3);
-        out.println("throw new RuntimeException(e);");
-        addIndentation(out, 2);
-        out.println("}");
+
         addIndentation(out, 1);
         out.println("}");
 
