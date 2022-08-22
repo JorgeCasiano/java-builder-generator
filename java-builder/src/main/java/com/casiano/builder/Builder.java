@@ -11,5 +11,7 @@ public @interface Builder {
 
     BuilderMode mode() default BuilderMode.FIELD;
 
+    String name() default "";
+
 
 }

@@ -2,10 +2,8 @@ package com.casiano.builder;
 
 import com.google.auto.service.AutoService;
 
-import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.Processor;
-import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.*;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
@@ -15,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 @SupportedAnnotationTypes("com.casiano.builder.Builder")
+@SupportedSourceVersion(SourceVersion.RELEASE_17)
 @AutoService(Processor.class)
 public class BuilderProcessor extends AbstractProcessor {
 
@@ -30,18 +29,25 @@ public class BuilderProcessor extends AbstractProcessor {
     private void generateClass(Element element) {
         try {
             Builder builderAnnotation = element.getAnnotation(Builder.class);
-            String pkg = element.getEnclosingElement().toString();
 
-            String builderName = element.getSimpleName() + "Builder";
+            String builderAnnotationName = builderAnnotation.name();
 
-            JavaFileObject builderFile = processingEnv.getFiler().createSourceFile(pkg + "." + builderName);
+            String builderPackage = BuilderHelper.extractPackageName(builderAnnotationName).orElseGet(() -> element.getEnclosingElement().toString());
+
+            String targetPackage = element.getEnclosingElement().toString();
+
+            String builderName = BuilderHelper.extractBuilderName(builderAnnotationName).orElseGet(() -> element.getSimpleName() + "Builder");
+
+            String fullBuilderName = builderPackage + "." + builderName;
+
+            JavaFileObject builderFile = processingEnv.getFiler().createSourceFile(fullBuilderName);
             PrintWriter out = new PrintWriter(builderFile.openWriter());
             try (out) {
                 boolean modeSetter = builderAnnotation.mode() == BuilderMode.SETTER;
                 List<FieldInfo> fields = modeSetter ? FieldInfo.extractSetters(element) : FieldInfo.extractFields(element);
 
                 TargetClassInfo classInfo =
-                        new TargetClassInfo(builderName, pkg, element.getSimpleName().toString(), out, builderAnnotation, fields);
+                        new TargetClassInfo(builderPackage, builderName, targetPackage, element.getSimpleName().toString(), out, builderAnnotation, fields);
 
                 declareClass(classInfo);
                 addFields(classInfo);
@@ -72,7 +78,7 @@ public class BuilderProcessor extends AbstractProcessor {
     }
 
     private void declareClass(TargetClassInfo classInfo) {
-        classInfo.writer().println("package " + classInfo.packageName() + ";");
+        classInfo.writer().println("package " + classInfo.builderPackageName() + ";");
         classInfo.lineBreak();
         classInfo.writer().println("public class " + classInfo.builderName() + "{");
         classInfo.lineBreak();

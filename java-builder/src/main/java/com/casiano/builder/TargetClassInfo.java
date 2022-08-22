@@ -5,7 +5,8 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.stream.IntStream;
 
-public record TargetClassInfo(String builderName, String packageName, String targetName, PrintWriter writer,
+public record TargetClassInfo(String builderPackageName, String builderName, String packageName, String targetName,
+                              PrintWriter writer,
                               Builder builderAnnotation, List<FieldInfo> fields) {
 
     public String fullName() {
