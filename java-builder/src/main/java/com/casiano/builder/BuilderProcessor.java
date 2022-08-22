@@ -13,7 +13,6 @@ import javax.tools.JavaFileObject;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.IntStream;
 
 @SupportedAnnotationTypes("com.casiano.builder.Builder")
 @AutoService(Processor.class)
@@ -38,130 +37,124 @@ public class BuilderProcessor extends AbstractProcessor {
             JavaFileObject builderFile = processingEnv.getFiler().createSourceFile(pkg + "." + builderName);
             PrintWriter out = new PrintWriter(builderFile.openWriter());
             try (out) {
-                declareClass(out, pkg, builderName);
                 boolean modeSetter = builderAnnotation.mode() == BuilderMode.SETTER;
                 List<FieldInfo> fields = modeSetter ? FieldInfo.extractSetters(element) : FieldInfo.extractFields(element);
-                addFields(fields, out);
 
-                addNewBuilder(out, builderName);
-                addBuildMethod(out, pkg, element.getSimpleName().toString(), fields, modeSetter);
-                addMethods(fields, builderName, out);
+                TargetClassInfo classInfo =
+                        new TargetClassInfo(builderName, pkg, element.getSimpleName().toString(), out, builderAnnotation, fields);
+
+                declareClass(classInfo);
+                addFields(classInfo);
+
+                addNewBuilder(classInfo);
+                addBuildMethod(classInfo);
+                addMethods(classInfo);
 
                 if (!modeSetter) {
-                    addHelperSetField(out, pkg, element.getSimpleName().toString());
+                    addHelperSetField(classInfo);
                 }
 
-                out.println("}");
+                classInfo.writer().println("}");
             }
         } catch (Exception e) {
             error("Error: " + e, element);
         }
     }
 
-    private void addNewBuilder(PrintWriter out, String builderName) {
-        addIndentation(out, 1);
-        out.println("public static " + builderName + " newBuilder() {");
-        addIndentation(out, 2);
-        out.println("return new " + builderName + "();");
-        addIndentation(out, 1);
-        out.println("}");
-        lineBreak(out);
+    private void addNewBuilder(TargetClassInfo classInfo) {
+        classInfo.addIndentation(1);
+        classInfo.writer().println("public static " + classInfo.builderName() + " newBuilder() {");
+        classInfo.addIndentation(2);
+        classInfo.writer().println("return new " + classInfo.builderName() + "();");
+        classInfo.addIndentation(1);
+        classInfo.writer().println("}");
+        classInfo.lineBreak();
     }
 
-    private void declareClass(PrintWriter out, String pkg, String builderName) {
-        out.println("package " + pkg + ";");
-        lineBreak(out);
-        out.println("public class " + builderName + "{");
-        lineBreak(out);
+    private void declareClass(TargetClassInfo classInfo) {
+        classInfo.writer().println("package " + classInfo.packageName() + ";");
+        classInfo.lineBreak();
+        classInfo.writer().println("public class " + classInfo.builderName() + "{");
+        classInfo.lineBreak();
     }
 
-    private void addBuildMethod(PrintWriter out, String pkg, String clsName, List<FieldInfo> fields, boolean modeSetter) {
-        String fullName = pkg + "." + clsName;
-        String variable = clsName.toLowerCase();
-        addIndentation(out, 1);
-        out.println("public " + fullName + " build() {");
-        addIndentation(out, 2);
-        if (modeSetter) {
-            out.println(fullName + " " + variable + " = new " + fullName + "();");
-            for (FieldInfo field : fields) {
-                addIndentation(out, 2);
+    private void addBuildMethod(TargetClassInfo classInfo) {
+        String fullName = classInfo.fullName();
+        String variable = classInfo.variableName();
+        classInfo.addIndentation(1);
+        classInfo.writer().println("public " + fullName + " build() {");
+        classInfo.addIndentation(2);
+        if (classInfo.isModeSetter()) {
+            classInfo.writer().println(fullName + " " + variable + " = new " + fullName + "();");
+            for (FieldInfo field : classInfo.fields()) {
+                classInfo.addIndentation(2);
                 String setter = "set" + Character.toUpperCase(field.name().charAt(0)) + field.name().substring(1);
-                out.println(variable + "." + setter + "(this." + field.name() + ");");
+                classInfo.writer().println(variable + "." + setter + "(this." + field.name() + ");");
             }
-            addIndentation(out, 2);
-            out.println("return " + variable + ";");
+            classInfo.addIndentation(2);
+            classInfo.writer().println("return " + variable + ";");
         } else {
-            out.println("try {");
-            addIndentation(out, 3);
-            out.println(fullName + " " + variable + " = new " + fullName + "();");
-            addIndentation(out, 3);
-            out.println("java.lang.reflect.Field[] fields = " + fullName + ".class.getDeclaredFields();");
-            for (int i = 0; i < fields.size(); i++) {
-                addIndentation(out, 3);
-                out.println("setField(" + variable + ", fields[" + i + "], this." + fields.get(i).name() + ");");
+            classInfo.writer().println("try {");
+            classInfo.addIndentation(3);
+            classInfo.writer().println(fullName + " " + variable + " = new " + fullName + "();");
+            classInfo.addIndentation(3);
+            classInfo.writer().println("java.lang.reflect.Field[] fields = " + fullName + ".class.getDeclaredFields();");
+            for (int i = 0; i < classInfo.fields().size(); i++) {
+                classInfo.addIndentation(3);
+                classInfo.writer().println("setField(" + variable + ", fields[" + i + "], this." + classInfo.fields().get(i).name() + ");");
             }
-            addIndentation(out, 3);
-            out.println("return " + variable + ";");
-            addIndentation(out, 2);
-            out.println("} catch (IllegalAccessException e) {");
-            addIndentation(out, 3);
-            out.println("throw new RuntimeException(e);");
-            addIndentation(out, 2);
-            out.println("}");
+            classInfo.addIndentation(3);
+            classInfo.writer().println("return " + variable + ";");
+            classInfo.addIndentation(2);
+            classInfo.writer().println("} catch (IllegalAccessException e) {");
+            classInfo.addIndentation(3);
+            classInfo.writer().println("throw new RuntimeException(e);");
+            classInfo.addIndentation(2);
+            classInfo.writer().println("}");
         }
 
-        addIndentation(out, 1);
-        out.println("}");
+        classInfo.addIndentation(1);
+        classInfo.writer().println("}");
 
-        lineBreak(out);
+        classInfo.lineBreak();
     }
 
-    private void addFields(List<FieldInfo> fields, PrintWriter out) {
-        fields.forEach(field -> {
-            addIndentation(out, 1);
-            out.println("private " + field.type() + " " + field.name() + ";");
-            lineBreak(out);
+    private void addFields(TargetClassInfo classInfo) {
+        classInfo.fields().forEach(field -> {
+            classInfo.addIndentation(1);
+            classInfo.writer().println("private " + field.type() + " " + field.name() + ";");
+            classInfo.lineBreak();
         });
-        lineBreak(out);
+        classInfo.lineBreak();
     }
 
-    private void addMethods(List<FieldInfo> fields, String builderName, PrintWriter out) {
-        fields.forEach(field -> this.addMethod(field, builderName, out));
-        lineBreak(out);
+    private void addMethods(TargetClassInfo classInfo) {
+        classInfo.fields().forEach(field -> this.addMethod(field, classInfo));
+        classInfo.lineBreak();
     }
 
-    private void addMethod(FieldInfo field, String builderName, PrintWriter out) {
-        addIndentation(out, 1);
-        out.println("public " + builderName + " " + field.name() + "(" + field.type() + " " + field.name() + ") {");
+    private void addMethod(FieldInfo field, TargetClassInfo classInfo) {
+        classInfo.addIndentation(1);
+        classInfo.writer().println("public " + classInfo.builderName() + " " + field.name() + "(" + field.type() + " " + field.name() + ") {");
 
-        addIndentation(out, 2);
-        out.println("this." + field.name() + " = " + field.name() + ";");
-        addIndentation(out, 2);
-        out.println("return this;");
+        classInfo.addIndentation(2);
+        classInfo.writer().println("this." + field.name() + " = " + field.name() + ";");
+        classInfo.addIndentation(2);
+        classInfo.writer().println("return this;");
 
-        addIndentation(out, 1);
-        out.println("}");
+        classInfo.addIndentation(1);
+        classInfo.writer().println("}");
     }
 
-    private void lineBreak(PrintWriter out) {
-        out.println();
-    }
-
-    private void addIndentation(PrintWriter out, int level) {
-        IntStream.range(0, level).forEach(l -> out.print("  "));
-    }
-
-    private void addHelperSetField(PrintWriter out, String pkg, String clsName) {
-        String fullName = pkg + "." + clsName;
-        String parameter = clsName.toLowerCase();
-        addIndentation(out, 1);
-        out.println("private void setField(" + fullName + " " + parameter + " , java.lang.reflect.Field field, Object value) throws IllegalAccessException {");
-        addIndentation(out, 2);
-        out.println("field.setAccessible(true);");
-        addIndentation(out, 2);
-        out.println("field.set(" + parameter + ", value);");
-        addIndentation(out, 1);
-        out.println("}");
+    private void addHelperSetField(TargetClassInfo classInfo) {
+        classInfo.addIndentation(1);
+        classInfo.writer().println("private void setField(" + classInfo.fullName() + " " + classInfo.variableName() + " , java.lang.reflect.Field field, Object value) throws IllegalAccessException {");
+        classInfo.addIndentation(2);
+        classInfo.writer().println("field.setAccessible(true);");
+        classInfo.addIndentation(2);
+        classInfo.writer().println("field.set(" + classInfo.variableName() + ", value);");
+        classInfo.addIndentation(1);
+        classInfo.writer().println("}");
     }
 
     private void error(String msg, Element e) {
