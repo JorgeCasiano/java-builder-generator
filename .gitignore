@@ -1,4 +1,12 @@
-target/
+java-builder/target/
+
+**/target/**/*.class
+**/target/**/*.txt
+**/target/**/*.lst
+**/target/**/*.jar
+**/target/**/*.properties
+**/target/**/*.xml
+
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
