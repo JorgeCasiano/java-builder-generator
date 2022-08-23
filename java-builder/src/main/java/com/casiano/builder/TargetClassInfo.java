@@ -6,8 +6,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 public record TargetClassInfo(String builderPackageName, String builderName, String packageName, String targetName,
-                              PrintWriter writer,
-                              Builder builderAnnotation, List<FieldInfo> fields) {
+                              PrintWriter writer, Builder builderAnnotation, List<FieldInfo> fields) {
 
     public String fullName() {
         return packageName + "." + targetName;
@@ -19,6 +18,10 @@ public record TargetClassInfo(String builderPackageName, String builderName, Str
 
     public boolean isModeSetter() {
         return builderAnnotation.mode() == BuilderMode.SETTER;
+    }
+
+    public boolean hasCopyBuilder() {
+        return builderAnnotation.copyBuilder();
     }
 
     public void lineBreak() {

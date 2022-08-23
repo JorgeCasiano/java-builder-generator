@@ -23,9 +23,27 @@ class BookModeFieldBuilderTest {
     }
 
     @Test
+    void whenBuildBookWithCopyBuilder_modeField_thenObjectHasPropertyValues() {
+        BookModeField book = new BookModeField();
+        book.setIsbn("an_isbn");
+        book.setTitle("a_title");
+        book.setPages(10);
+
+        BookModeField result = BookModeFieldBuilder.copyBuilder(book)
+                .pages(99)
+                .build();
+
+        assertThat(result, notNullValue());
+        assertThat(result.getPages(), is(99));
+        assertThat(result.getIsbn(), is("an_isbn"));
+        assertThat(result.getTitle(), is("a_title"));
+    }
+
+    @Test
     void whenGenerateBuilderWithModeField_generateAttributesFromFields() {
         int fields = BookModeFieldBuilder.class.getDeclaredFields().length;
-        assertThat(fields, is(3));
+        // 3 fields + 3 (initFields) + 2 (target instance and generateWithCopy)
+        assertThat(fields, is(3 + 3 + 2));
     }
 
 }

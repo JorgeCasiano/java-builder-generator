@@ -3,12 +3,20 @@ package com.casiano.builder.example;
 import com.casiano.builder.Builder;
 import com.casiano.builder.BuilderMode;
 
-@Builder(mode = BuilderMode.SETTER)
+@Builder(mode = BuilderMode.SETTER, copyBuilder = true)
 public class BookModeSetter {
 
     private String isbn;
     private String title;
     private int pages;
+
+    public BookModeSetter() {
+
+    }
+
+    public BookModeSetter(int pages) {
+        this.pages = pages;
+    }
 
     public String getIsbn() {
         return isbn;

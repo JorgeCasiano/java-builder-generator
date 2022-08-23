@@ -17,6 +17,9 @@ import java.util.Set;
 @AutoService(Processor.class)
 public class BuilderProcessor extends AbstractProcessor {
 
+    public static final String PRIVATE = "private ";
+    public static final String THIS = "this.";
+
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(Builder.class);
@@ -52,6 +55,11 @@ public class BuilderProcessor extends AbstractProcessor {
                 declareClass(classInfo);
                 addFields(classInfo);
 
+                if (classInfo.hasCopyBuilder()) {
+                    generateCopyBuilder(classInfo);
+                }
+
+                addConstructor(classInfo);
                 addNewBuilder(classInfo);
                 addBuildMethod(classInfo);
                 addMethods(classInfo);
@@ -67,11 +75,50 @@ public class BuilderProcessor extends AbstractProcessor {
         }
     }
 
+    private void generateCopyBuilder(TargetClassInfo classInfo) {
+        generateFieldsCopyBuilder(classInfo);
+        generateMethodCopyBuilder(classInfo);
+    }
+
+    private void generateFieldsCopyBuilder(TargetClassInfo classInfo) {
+        classInfo.fields().forEach(field -> {
+            classInfo.addIndentation(1);
+            classInfo.writer().println("private boolean init" + field.name() + ";");
+            classInfo.lineBreak();
+        });
+
+
+    }
+
+    private void generateMethodCopyBuilder(TargetClassInfo classInfo) {
+        classInfo.addIndentation(1);
+        classInfo.writer().println("public static " + classInfo.builderName() + " copyBuilder(" +
+                classInfo.fullName() + " " + classInfo.variableName() + ") {");
+        classInfo.addIndentation(2);
+        classInfo.writer().println("return new " + classInfo.builderName() + "(" + classInfo.variableName() + ", true);");
+        classInfo.addIndentation(1);
+        classInfo.writer().println("}");
+        classInfo.lineBreak();
+    }
+
+    private void addConstructor(TargetClassInfo classInfo) {
+        classInfo.addIndentation(1);
+        classInfo.writer().println(PRIVATE + classInfo.builderName() + "(" +
+                classInfo.fullName() + " " + classInfo.variableName() + ", boolean generateWithCopy) {");
+        classInfo.addIndentation(2);
+        classInfo.writer().println(THIS + classInfo.variableName() + " = " + classInfo.variableName() + ";");
+        classInfo.addIndentation(2);
+        classInfo.writer().println("this.generateWithCopy = generateWithCopy;");
+        classInfo.addIndentation(1);
+        classInfo.writer().println("}");
+        classInfo.lineBreak();
+    }
+
     private void addNewBuilder(TargetClassInfo classInfo) {
         classInfo.addIndentation(1);
         classInfo.writer().println("public static " + classInfo.builderName() + " newBuilder() {");
         classInfo.addIndentation(2);
-        classInfo.writer().println("return new " + classInfo.builderName() + "();");
+        classInfo.writer().println("return new " + classInfo.builderName() + "(new " + classInfo.fullName() + "(), false);");
         classInfo.addIndentation(1);
         classInfo.writer().println("}");
         classInfo.lineBreak();
@@ -86,28 +133,25 @@ public class BuilderProcessor extends AbstractProcessor {
 
     private void addBuildMethod(TargetClassInfo classInfo) {
         String fullName = classInfo.fullName();
-        String variable = classInfo.variableName();
+        String variable = THIS + classInfo.variableName();
         classInfo.addIndentation(1);
         classInfo.writer().println("public " + fullName + " build() {");
-        classInfo.addIndentation(2);
         if (classInfo.isModeSetter()) {
-            classInfo.writer().println(fullName + " " + variable + " = new " + fullName + "();");
             for (FieldInfo field : classInfo.fields()) {
-                classInfo.addIndentation(2);
                 String setter = "set" + Character.toUpperCase(field.name().charAt(0)) + field.name().substring(1);
-                classInfo.writer().println(variable + "." + setter + "(this." + field.name() + ");");
+                String setterCall = variable + "." + setter + "(this." + field.name() + ");";
+                addConditionSetField(classInfo, field.name(), setterCall, 2);
             }
             classInfo.addIndentation(2);
             classInfo.writer().println("return " + variable + ";");
         } else {
+            classInfo.addIndentation(2);
             classInfo.writer().println("try {");
             classInfo.addIndentation(3);
-            classInfo.writer().println(fullName + " " + variable + " = new " + fullName + "();");
-            classInfo.addIndentation(3);
-            classInfo.writer().println("java.lang.reflect.Field[] fields = " + fullName + ".class.getDeclaredFields();");
+            classInfo.writer().println("java.lang.reflect.Field[] fields = " + variable + ".getClass().getDeclaredFields();");
             for (int i = 0; i < classInfo.fields().size(); i++) {
-                classInfo.addIndentation(3);
-                classInfo.writer().println("setField(" + variable + ", fields[" + i + "], this." + classInfo.fields().get(i).name() + ");");
+                String setterCall = "setField(" + variable + ", fields[" + i + "], this." + classInfo.fields().get(i).name() + ");";
+                addConditionSetField(classInfo, classInfo.fields().get(i).name(), setterCall, 3);
             }
             classInfo.addIndentation(3);
             classInfo.writer().println("return " + variable + ";");
@@ -125,12 +169,33 @@ public class BuilderProcessor extends AbstractProcessor {
         classInfo.lineBreak();
     }
 
+    private void addConditionSetField(TargetClassInfo classInfo, String attribute, String setter, int indentationLevel) {
+        classInfo.addIndentation(indentationLevel);
+        if (classInfo.hasCopyBuilder()) {
+            classInfo.writer().println("if (!this.generateWithCopy || this.init" + attribute + ") {");
+            classInfo.addIndentation(indentationLevel + 1);
+        }
+        classInfo.writer().println(setter);
+        if (classInfo.hasCopyBuilder()) {
+            classInfo.addIndentation(indentationLevel);
+            classInfo.writer().println("}");
+        }
+    }
+
     private void addFields(TargetClassInfo classInfo) {
         classInfo.fields().forEach(field -> {
             classInfo.addIndentation(1);
-            classInfo.writer().println("private " + field.type() + " " + field.name() + ";");
+            classInfo.writer().println(PRIVATE + field.type() + " " + field.name() + ";");
             classInfo.lineBreak();
         });
+        classInfo.lineBreak();
+
+        classInfo.addIndentation(1);
+        classInfo.writer().println(PRIVATE + classInfo.fullName() + " " + classInfo.variableName() + ";");
+        classInfo.lineBreak();
+
+        classInfo.addIndentation(1);
+        classInfo.writer().println("private boolean generateWithCopy;");
         classInfo.lineBreak();
     }
 
@@ -143,8 +208,13 @@ public class BuilderProcessor extends AbstractProcessor {
         classInfo.addIndentation(1);
         classInfo.writer().println("public " + classInfo.builderName() + " " + field.name() + "(" + field.type() + " " + field.name() + ") {");
 
+        if (classInfo.hasCopyBuilder()) {
+            classInfo.addIndentation(2);
+            classInfo.writer().println("this.init" + field.name() + " = this.generateWithCopy;");
+        }
+
         classInfo.addIndentation(2);
-        classInfo.writer().println("this." + field.name() + " = " + field.name() + ";");
+        classInfo.writer().println(THIS + field.name() + " = " + field.name() + ";");
         classInfo.addIndentation(2);
         classInfo.writer().println("return this;");
 

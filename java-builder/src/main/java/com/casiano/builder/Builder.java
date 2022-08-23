@@ -13,5 +13,6 @@ public @interface Builder {
 
     String name() default "";
 
+    boolean copyBuilder() default false;
 
 }
